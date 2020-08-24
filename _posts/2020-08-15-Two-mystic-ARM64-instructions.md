@@ -7,9 +7,9 @@ tags: [arm64, performance, assembly, work, debugging]
 ---
 
 This is the 4th of the blog posts series that talks about ARM64 performance investigation for .NET core. You can read previous blogs at:
-*  [Part 1 - ARM64 performance of .Net Core](..\2020-06-30-Dotnet-Arm64-Performance).
-*  [Part 2 - Memory barriers in ARM64](..\2020-07-02-ARM64-Memory-Barriers).
-*  [Part 3 - Peephole optimizations in ARM64](..\2020-07-05-ARM64-peephole-optimizations).
+*  [Part 1 - ARM64 performance of .Net Core](..\2020-07-04-Dotnet-Arm64-Performance)
+*  [Part 2 - Memory barriers in ARM64](..\2020-07-25-ARM64-Memory-Barriers)
+*  [Part 3 - Peephole optimizations in ARM64](..\2020-08-08-ARM64-peephole-optimizations)
 
 In this post, I will describe an important optimization opportunity that I could find while doing the performance investigation that led us to get almost **12%** code size improvement.
 
@@ -46,12 +46,13 @@ In the above assembly code, you will notice that we try to load an indirect cell
         D63F0080          blr     x4
 {% endhighlight %}
 
-ARM64 follows fixed encoding i.e. each instruction has fixed size of 4-bytes. If we can do the above described optimization, that would give us an improvement of 8-bytes per call site. Before I started working on it, I wrote a small utility in [AnalyzeAsm](https://github.com/dotnet/jitutils/blob/a8343a8df3ffa88753cb20f0115154c69da11e23/src/AnalyzeAsm/Program.cs#L1503) to scan the ARM64 code produced for .NET framework libraries by `crossgen` and get an estimate of number of occurrences of such redundant `adrp+add` occurrences. I was surprised to see that there were around **615732** such groups in **126823** methods. That is approximately **4.9MB** of code size and was worth pursuing it.
+ARM64 follows fixed encoding i.e. each instruction has fixed size of 4-bytes. If we can do the above described optimization, that would give us an improvement of 8-bytes per call site. Before I started working on it, I wrote a small utility in [AnalyzeAsm](https://github.com/dotnet/jitutils/blob/a8343a8df3ffa88753cb20f0115154c69da11e23/src/AnalyzeAsm/Program.cs#L1503) to scan the ARM64 code produced for .NET Core libraries by `crossgen` and get an estimate of number of occurrences of such redundant `adrp+add` occurrences. I was surprised to see that there were around **615732** such groups in **126823** methods. That is approximately **4.9MB** of code size and was worth pursuing it.
 
 
 ### Result
 
-With [part 1](https://github.com/dotnet/runtime/pull/35675) and [part 2](https://github.com/dotnet/runtime/pull/36817) of this work, we were able to improve the code size of .NET framework libraries by over **13.5%** which was very significant. 
+With [part 1](https://github.com/dotnet/runtime/pull/35675) and [part 2](https://github.com/dotnet/runtime/pull/36817) of this work, we were able to improve the code size of .NET Core libraries by over **13.5%** which was very significant.
+
 
 ### Addressing a bug
 

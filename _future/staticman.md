@@ -17,3 +17,10 @@ went with static man
 
 Then on printing inside RSA.js found out `cat key.pem` problem. Fixed it.
 Some fixes needed for comments display logic which i copied from `https://github.com/Catch-up-TV-and-More/jekyll-website/blob/master/_includes/staticman-script.html`
+
+1. Deploy heroku app
+2. update _config.yml settings for staticman
+3. Create blog-bot using https://travisdowns.github.io/blog/2020/02/05/now-with-comments.html
+4. staticman forms
+5. Test the comment
+6. Remember to pull it from origin/master once PR is merged to see it on your local machine.
