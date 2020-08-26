@@ -99,8 +99,6 @@ Why would we even generate any code for empty method body? These methods would g
 
 ### Post index addressing mode
 
-TODO: Refer some recently generated code in other blog.
-
 Consider a loop that accesses array.
 
 {% highlight csharp linenos %}
