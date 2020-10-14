@@ -7,6 +7,8 @@ tags: [life]
 comments: true
 ---
 
+TODO: Add links to book covers to take them to amazon
+
 
 To make a good career, we start diving into lot of technical books as early as when we are in our early 20s. Some books we read over and over because either we fail to understand their content first few times or the concept itself is so intriguing that you want to refresh your memories with it every few years. For me, few of such books (among many others) are [the dragon book on Compilers](https://en.wikipedia.org/wiki/Compilers:_Principles,_Techniques,_and_Tools) or [the fat CLRS algorithms book](https://en.wikipedia.org/wiki/Introduction_to_Algorithms). Every time I read it, I understand some of the much more deeper concept that I failed to understand in my previous attempts. In my profession, I often face a situation where I have to go back and read about things that can be well explained in those books than searching on internet.
 
@@ -50,7 +52,7 @@ I got fascinated about history after watching [Bharat Ek Khoj](https://en.wikipe
 
 ### Freedom at Midnight
 
-Freedom at Midnight is the latest historical book I read. Written by Larry Collins and Dominique Lapierre, this is one of the most fascinating and marvelous book of events around Indian independence and its partition. The authors took couple of years of intense research with lot of interviews to capture every minute details of India between 1946 and 1948. The book starts when [Lord Mountbatten](https://en.wikipedia.org/wiki/Louis_Mountbatten,_1st_Earl_Mountbatten_of_Burma) is appointed as the last viceroy of India in Winter of 1946. His task is to withdraw the British rule from a land that they ruled for more than 150 years. The challenge that came with the task was to negotiate with Indian leaders to avoid the partition. He succeeded in former, but unfortunately failed in later. The book also describes similar attempts of another Indian leader, Mahatma Gandhi, who tried hard to avoid partition, but failed miserably. The book gives detail accounts of some of his personal and political life, his thoughts and principals that he carried for his entire life and what made him Mahatma, the great soul. It also narrates the colorful and lavish lifestyles enjoyed by Indian kings and princes, the circumstances that led to the decision of partition, its after effects of bloodshed, and concludes with the martyr of Mahatma Gandhi.
+Freedom at Midnight is the latest historical book I read. Written by Larry Collins and Dominique Lapierre, this is one of the most fascinating and marvelous book of events around Indian independence and its partition. The authors took couple of years of intense research with lot of interviews to capture every minute details of India between 1946 and 1948. The book starts when [Lord Mountbatten](https://en.wikipedia.org/wiki/Louis_Mountbatten,_1st_Earl_Mountbatten_of_Burma) is appointed as the last viceroy of India in Winter of 1946. His task is to withdraw the British rule from a land that they ruled for more than 150 years. The challenge that came with the task was to convince the Indian leaders to avoid partitioning the country. He succeeded in the former, but unfortunately failed in later. The book also describes similar attempts of another Indian leader, Mahatma Gandhi, who tried hard to avoid partition, but failed miserably. The book also narrates the colorful and lavish lifestyles enjoyed by Indian kings and princes, the circumstances that led to the decision of partition, its after effects of bloodshed. The book concludes with a chapter "The second crucifixion" that describes the murder of Mahatma Gandhi, the great soul.
 
 <img align="right" width="15%" height="15%" src="/assets/img/books/glimpses.jpg" />
 
@@ -63,7 +65,7 @@ Glimpses of World History is a collection of 196 letters written by [Jawaharlal 
 
 <img align="right" width="15%" height="15%" src="/assets/img/books/gandhiji.jpg" />
 
-### Stories of my experiments with truth
+### The Story of My Experiments with Truth
 
 An autobiography of [Mahatma Gandhi](https://en.wikipedia.org/wiki/Mahatma_Gandhi) by far is the best book I have ever read and most likely it will be my favorite in future. This book is part of curriculum (or at least it used to be) in many school districts of India to teach students the values and principles of one of the greatest spiritual soul that existed in the world. It might be hard to follow his principles for many of us, but I think there are many takeaways from this book that everyone can apply in their life and see benefit out of it. The book describes the childhood of Mohandas Gandhi, his personal struggle in controlling his thoughts as well as the freedom struggle that he led in South Africa and India to bring justice to the underprivileged. The book covers his life journey until 1921 after which he cites ***"My life from this point onward had been so public that there is hardly anything about it that people do not know"***. I still recall one of the chapter in which he describes a very personal incident of him (and honestly I was astonished with the courage anyone would have to describe it in his/her autobiography) where he preferred his desire to spend some intimate time with his wife instead of massaging his old father who passes away while he was in bedroom. This incident led him to eventually practice abstinence.
 
@@ -74,10 +76,29 @@ Steve Jobs was a very great book
 ## Scientific
 
 
-### Brief history of time
-### Geek atlas
-### what if
-### Thing explainer
+<img align="right" width="15%" height="15%" src="/assets/img/books/BriefHistoryTime.jpg" />
+
+### A Brief History Of Time
+
+If you want to understand complex physics concepts in easy to understand language, "A Brief History of Time" is the book to read. Renowned physicist Stephen Hawking talks about basic concepts of space and time, building blocks of Universe, Time Travel, Black Holes and the Big Bang theory in simple, non-technical terms. Once you read the book, it is fascinating to realize that you understood all these things without seeing any physics equation. This short book of approximately 250 pages has only a single equation "E = mc<sup>2</sup>". Major theories like "general relativity" and "quantum mechanics" are well explained that even a 7<sup>th</sup> grader can understand. A highly recommended book to brush up your physics concepts that can be completed over the weekend.
+
+<img align="right" width="15%" height="15%" src="/assets/img/books/thegeekatlas.jpg" />
+
+### The Geek Atlas
+
+If you are a geek, and you want to know some of the coolest places in world that is unique in scientific way or where great discoveries were done, Geek Atlas is your traveler's guide. It has 128 chapters, each talks about a places around the world where historically some great things related to science, mathematics or technology occurred. Even the number "128" that the author chose, is a power of 2, people from computer background are familiar with. Not just the book talks about a place, it also explains the scientific or technical concept behind that so the reader can understand the importance of that place. By reading about those 128 places, you not only acquire knowledge about these places, but also understand 128 concepts that you must have not known or might have long forgotten. From Darwin's Theory of Evolution to [1 Infinite Loop](https://en.wikipedia.org/wiki/Apple_Campus), this book has great collection of topics to read. My favorite among all of those is a place Le Pantheon in Paris having [Foucault pendulum](https://en.wikipedia.org/wiki/Foucault_pendulum) that demonstrates the Earth's rotation.
+
+<img align="right" width="15%" height="15%" src="/assets/img/books/What_If_xkcd.jpg" />
+
+### What If?
+
+From the author of [xkcd webcomic](https://xkcd.com/), "What If?" is a fun book to read that gives great scientific answers to the non-sensible hypothetical questions. The book contains some of the selected answers from his webcomic [what-if.xkcd](https://what-if.xkcd.com/). It is very astonishing to see author's knowledge on physics and mechanics concept when you see him giving scientific explanation to some of the imaginary question. For example, [Everybody Jump chapter](https://what-if.xkcd.com/8/) answers ***"If every person on Earth aimed a laser pointer at the Moon at the same time, would it change color?"*** As factitious it sounds, [Randall Munroe](https://en.wikipedia.org/wiki/Randall_Munroe) starts by explaining where should be the Moon relative to Earth to get maximum exposure of laser light, chosing a place on Earth where maximum people can point their laser beam on and at what time they should be doing that. He further explains what lumens of light should laser have to and its effect on moon and how much power it would take if stronger focus lights are used instead of laser beam. The answer also talks about the possibility of using [National Ignition Facility](https://en.wikipedia.org/wiki/National_Ignition_Facility) that has the confinement beam of most powerful laser on Earth. Further, he gives some equation to explains if the light beams will vaporize the Moon rocks. To help easy understand and imagine, these answers and the surrounding explanation are depicted by various drawings.
+
+<img align="right" width="15%" height="15%" src="/assets/img/books/ThingExplainerCover.png" />
+
+### Thing Explainer
+
+If you want to test how much you know about something, try explaining it to a 5-year old. If you can translate the complex concepts in a simple terms that child can understand, you probably know the concept well. That is the theme that Randall Munroe, the author of "What If?", followed in "Thing Explainer" as well. Randall uses [1000 most common English words](https://en.wikipedia.org/wiki/Most_common_words_in_English) to explain how some of the things around us works. He explains Microwave, Data centers, International Space Station, Solar System, Helicopters, Washers and Dryers and Human organs. Not to mention, all of these concepts are demonstrated by giant drawings.
 
 ## Economics
 
