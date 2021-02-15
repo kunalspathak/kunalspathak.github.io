@@ -1,0 +1,56 @@
+---
+layout: post
+title: Loop alignment in .NET Runtime
+subtitle: Performance and stability improvement
+# cover-img: /assets/img/path.jpg
+tags: [life]
+comments: true
+---
+
+## Introduction
+
+A target machine code is executed by the CPU by first fetching 16B, 32B or 64B instructions (depending on the processors and their generations) in each clock cycle using the instruction fetcher, feeding it to the instruction decoder, converting them to μops and finally executing the μops. Code alignment is a technique in which one or more NOPs is added by the compiler in the generated machine code so that the hot region of the code is placed at an address that is at 16B or 32B aligned chunk  of memory so that maximum fetching of the hot code can happen in fewer clock cycles. In other words, if there is a hot region like a loop in the code, the compiler would add sequence of NOPs (if needed) to make that hot region start at an address which is mod(16) or mod(32). Study shows that by performing such alignments, the code can benefit immensely. The performance of such code is stable since it is not affected by the placement of code at mis-aligned address location. If you want to understand why alignment matters or how does it affect the performance, I would highly encourage to see the [Causes of Performance Swings due to Code Placement in IA](https://www.youtube.com/watch?v=IX16gcX4vDQ&ab_channel=LLVM) talk given by Intel’s engineer Zia Ansari at 2016 LLVM Developer’s Meeting. This document will not cover those details nor will it cover effects of data (or memory) alignment on performance and stability of the product. This document will try to capture how code alignment is performed by other runtimes. 
+
+## Heuristics
+
+Before we talk about various runtimes, we should understand some of the design choices and heuristics to be considered for performing code alignment. Most of the time, hot region in a method is the portion of code that gets executed over and over and could represent a loop, the following heuristics should be evaluated before aligning a loop body.
+
+1.	Padding amount: To align a loop, NOP instructions (in other words, padding) need to be inserted before the loop starts so that the first instruction of the loop starts at an address which is mod(32) or mod(16). It can be a design choice on how much padding we need to add to align a loop. E.g., for aligning a loop to 32B boundary, we can choose to add maximum padding of 31 bytes or can have a limitation on the padding amount. Since padding or NOP instructions are not free, they will get executed and so careful choice of how much padding should be added is very crucial. 
+ 
+2.	Loop size: Aligning the loop is beneficial if the loop is small. As the loop size grows, the effect of padding disappears. Imagine a loop that is 62 bytes long and need at least 2 32B chunks to fit. It might not be sensible to add 31 bytes padding for such loop since fetching two chunks of loop might hide the gain obtained from padding. Additionally, the CPU will spend cycles on 31 bytes NOP if it falls on the code path and that can adversely affect the performance of the code.
+
+3.	Aligned loops: It can happen that the first instruction of the loop is already at the 32B boundary and in such cases, no extra padding would be needed.
+
+4.	Slightly aligned loops: There can be cases where although the first instruction of the loop is not at 32B boundary, but it is at offset such that the entire loop body still fits in the same 32B chunk. E.g., if the loop size is 24 bytes, and if it starts anywhere between mod(32)+0 ~ mod(32)+7 , it will still fit inside a single 32B chunk and in such cases, we can skip aligning the loop. If this heuristics is not taken in account, we can run into cases where a loop starts from mod(32)+1, and since it is not at the mod(32) address, we add extra 31 bytes to align it to next 32B chunk.
+
+5.	Padding placement: If it is decided that padding is needed and we calculate the padding amount, the important design choice to make is where to place the padding instructions. A naïve way is to place it just before the loop starts, but as described above, that can adversely affect the performance because the padding instructions can get executed. A smarter way is to detect some blind spots in the code before the loop and place it at such places so that they do not get executed or are executed rarely. E.g. If we have unconditional jump somewhere in the method code, we could add padding instruction after the unconditional jump. By doing this, we will make sure that the padding instruction is never executed but we still get the loop aligned at right boundary. Another place where such padding can be added is in code block or a block that executes rarely (based on PGO data). Of course, the blind spot that we select should be lexically before the loop that we are trying to align.
+
+6.	Memory cost: Lastly, there is a need to evaluate how much extra memory is allocated by performing code alignment. If compiler can evaluate above heuristics before allocating memory for the generated code, then the extra memory allocated will be equal to the padding bytes we add. If the compilers align all the loops instead of aligning just hot loops, the memory cost can go up. On the other hand, if there is no limit to the padding amount and if compiler decide to pad at 32B boundary, then that too will consume lot of memory because the padding could be between 0 ~ 31 bytes. Hence, a right balance of loop size and padding limit is very important to have. One more problem that can arise is if a compiler cannot evaluate accurately above heuristics until we emit the instruction. In that case, a compiler will have to pessimistically insert an align instruction considering the largest possible padding. When it finds out during emitting that the alignment was not needed at all or the padding amount is just couple of bytes, it would have wasted the extra bytes it allocated for that alignment instruction. 
+
+
+## Loop alignment in other compilers
+
+For native or ahead of time compilers, it is hard to predict which loop will need alignment because the target address where loop will be placed can only be known during runtime and not during ahead of time compilation. However, certain native runtimes at least give an option to the user to let them specify the alignment.
+
+### GCC
+
+GCC provides `-falign-functions` attribute that the user can add on top of a function. More documentation can be seen [here](https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#Common-Function-Attributes) under “aligned” section. This will align the first instruction of every function at the specified boundary. It also provides [options](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html3) for `-falign-loops`, `-falign-labels` and `-falign-jumps` that will align all loops, labels or jumps in the entire code getting compiled. I did not inspect the GCC code, but looking at these options, it has several limitations. First, the padding amount is fixed and can anywhere between 0 and (N – 1) bytes. Second, the alignment will happen for the entire code base and cannot be restricted to a portion of files, methods, loops or hot regions. 
+
+### LLVM
+
+Same as GCC, dynamic alignment during runtime is not possible so LLVM too exposes an option of alignment choice to the user. [This blog](https://easyperf.net/blog/2018/01/25/Code_alignment_options_in_llvm) gives a good overview of various options available. One of the option that it gives is align-all-nofallthru-blocks which will not add padding instructions if the previous block can reach the current block by falling through because that would mean that we are adding NOPs in the execution path. Instead it tries to add the padding at blocks that ends with unconditional jumps. This is similar to what I mentioned above under “Padding placement”. To look for alignment handling in LLVM code base, good starting point is [Alignment.h](https://github.com/llvm/llvm-project/blob/9ddb464d37b05b993734c62511576a947b4542df/llvm/include/llvm/Support/Alignment.h#L9).
+
+### Javascript (Chakra)
+Chakra marks the inner most loop as the candidate for loop alignment. This happens for both [i386](https://github.com/v8/v8/blob/4b9b23521e6fd42373ebbcb20ebe03bf445494f9/src/compiler/backend/instruction.cc#L792-L800) and [amd64](https://github.com/microsoft/ChakraCore/blob/8527dc23954bdf77b17d25e472857f58a3b03f8a/lib/Backend/amd64/EncoderMD.cpp#L589) architecture. Later, during emitting, when it sees such loops, it aligns them with 16 byte padding as seen for [i386](https://github.com/microsoft/ChakraCore/blob/8527dc23954bdf77b17d25e472857f58a3b03f8a/lib/Backend/i386/EncoderMD.cpp#L1329) and [amd64](https://github.com/microsoft/ChakraCore/blob/8527dc23954bdf77b17d25e472857f58a3b03f8a/lib/Backend/amd64/EncoderMD.cpp#L1498). Thus, the max padding it will add is 15 bytes and it will do this for all inner loops irrespective of the loop size.
+
+
+
+Talk about the problem and link to the video of alignment issue
+- inner loop detection
+- adding pads depending on loop size
+- figuring out how to add pad of > 15 bytes
+- concept of minBlocks to see if alignment is needed or not.
+- adjust the maxPads depending on the loop size
+
+
+- other compilers
