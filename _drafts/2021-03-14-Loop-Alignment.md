@@ -3,7 +3,7 @@ layout: post
 title: Loop alignment in .NET Runtime
 subtitle: Performance and stability improvement
 # cover-img: /assets/img/path.jpg
-tags: [life]
+tags: [optimization, x86, x64, loop, alignment]
 comments: true
 ---
 
@@ -45,9 +45,11 @@ G_M22313_IG05:
 00007ff9a59ed011        jg       SHORT G_M22313_IG04
 ```
 
+While it sounds simple to add padding to the appropriate loops, there are lot of considerations that we have to take into account to make sure that the hot loops execution gets performance boost, but at the same time we see that unrelated changes doesn't affect its stability, as we will see below.
+
 #### Alignment boundary
 
-Different processors are designed such that the software running on them will benefit more if loop is aligned at `16B` boundary while other processors will show benefits by having `32B` alignment boundary. While the alignment should be in multiples of `16` and most recommended boundary for major hardware manufacturers like Intel, AMD and Arm is `32 byte`, we went ahead and had that as our default. With adaptive alignment (controlled using `COMPlus_JitAlignLoopAdaptive` environment variable and is set to be `1` by default), we will try to align a loop at `32 byte` boundary. But if we do not see that it is profitable to align a loop on `32 byte` boundary (for reasons listed below), we will try to align a loop at `16 byte` boundary. With non-adaptive alignment (`COMPlus_JitAlignLoopAdaptive=0`), we will try to align a loop to `32 byte` alignment by default. The alignment boundary can be changed using `COMPlus_JitAlignLoopBoundary` environment variable.   
+Different processors are designed such that the software running on them will benefit more if loop is aligned at `16B` boundary while other processors will show benefits by having `32B` alignment boundary. While the alignment should be in multiples of `16` and most recommended boundary for major hardware manufacturers like Intel, AMD and Arm is `32 byte`, we went ahead and had that as our default. With adaptive alignment (controlled using `COMPlus_JitAlignLoopAdaptive` environment variable and is set to be `1` by default), we will try to align a loop at `32 byte` boundary. But if we do not see that it is profitable to align a loop on `32 byte` boundary (for reasons listed below), we will try to align a loop at `16 byte` boundary. With non-adaptive alignment (`COMPlus_JitAlignLoopAdaptive=0`), we will try to align a loop to `32 byte` alignment by default. The alignment boundary can be changed using `COMPlus_JitAlignLoopBoundary` environment variable. Adaptive and non-adaptive alignment differs by the amount of padding bytes added, which I will discuss in `Padding amount` section below.
 
 #### Loop selection
 
@@ -159,35 +161,97 @@ G_M11250_IG05:
 ; ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ (xor: 1) 32B boundary ...............................
 ```
 
-To recap, so far, we have identified the hot nested loops in a method that needs padding, filtered the ones that has calls, filtered the ones that are big than our threshold and verified if the loop are placed such that padding will improve its performance.
+To recap, so far, we have identified the hot nested loops in a method that needs padding, filtered out the ones that has calls, filtered the ones that are big than our threshold and verified if the first instruction of the loop are placed such that extra padding will align that instruction at the desired alignment boundary.
 
 #### Padding amount
 
-To align a loop, NOP instructions (in other words, padding) need to be inserted before the loop starts so that the first instruction of the loop starts at an address which is mod(32) or mod(16). It can be a design choice on how much padding we need to add to align a loop. E.g., for aligning a loop to 32B boundary, we can choose to add maximum padding of 31 bytes or can have a limitation on the padding amount. Since padding or NOP instructions are not free, they will get executed and so careful choice of how much padding should be added is very crucial. 
+To align a loop, NOP instructions (in other words, padding) need to be inserted before the loop starts so that the first instruction of the loop starts at an address which is `mod(32)` or `mod(16)`. It can be a design choice on how much padding we need to add to align a loop. E.g., for aligning a loop to 32B boundary, we can choose to add maximum padding of 31 bytes or can have a limitation on the padding amount. Since padding or `NOP` instructions are not free, they will get executed and hence we need to make a careful choice of how much padding should be added. With non-adaptive approach, if an alignment need to happen at `N` bytes boundary, we will try to add up to `N-1` bytes to align the first instruction of the loop. So with `32B` or `16B` non-adaptive technique, we will try to align a loop to 32-byte or 16-byte boundary by adding up to 31 bytes or 15 bytes respectively.
 
-<< diagram and comparison of 32 non-adaptive??>>
+However, as mentioned above, we realized that adding lot of padding regress the performance of code. For example, if a loop of that is 15 bytes long starts at offset `mod(32) + 2`, with non-adaptive `32B` approach, we would add `30 bytes` of padding to align that loop to the next `32B` boundary address. Thus, to align a loop that is 15 bytes long, we have added extra 30 bytes to align it. If the loop that we aligned was a nested loop, the processor would be fetching and decoding these 30 bytes `NOP` instructions on every iteration of outer loop. We have also increased the size of method by 30 bytes. Lastly, since we would always try to align a loop at `32B` boundary, we might add more padding compared to the amount of padding needed, had we had to align the loop at `16B` boundary. With all these shortcomings, we came up with adaptive alignment approach.
+
+In adaptive alignment, we would limit the amount of padding added depending on the size of the loop. In this technique, the biggest possible padding that will be added is 15 bytes for a loop that fits in one 32B chunk. If the loop is bigger and fits in two 32B chunks, then reducing the padding amount to 7 bytes and so forth. The reasoning being that bigger the loop gets, lesser effect the alignment has on it. With this approach, we could align a loop that takes 4 32B chunks if padding needed is 1 byte. With 32B non-adaptive approach, we would never align such loops (because of `COMPlus_JitAlignLoopMaxCodeSize`).
+
+| Max Pad (bytes) | Minimum 32B blocks needed to fit the loop |
+|:---------------:|:-----------------------------------------:|
+| 15              | 1                                         |
+| 7               | 2                                         |
+| 3               | 3                                         |
+| 1               | 4                                         |
+
+If we cannot get the loop to align at 32B boundary, we will try it to align the loop to `16B` boundary. We reduce the max padding limit if we get here as seen in table below.
+
+| Max Pad (bytes) | Minimum 32B blocks to fit the loop |
+|:---------------:|:----------------------------------:|
+| 7               | 1                                  |
+| 3               | 2                                  |
+| 1               | 3                                  |
+
+In below graph, we did measurements of [microbenchmarks](https://github.com/dotnet/performance/tree/master/src/benchmarks/micro) to compare the performance characteristics using various alignment techniques. `32B` and `16B` represents non-adaptive technique while `32BAdaptive` represents `32B` adaptive technique.
+
+<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/bench-compare.PNG" />
+
+32B adaptive improves sooner after 171 benchmarks as compared to the next better approach which is 32B non-adaptive that gains performance after 241 benchmarks. We get maximum performance benefit sooner with 32B adaptive approach.
 
 #### Padding placement
 
-If it is decided that padding is needed and we calculate the padding amount, the important design choice to make is where to place the padding instructions. A naïve way is to place it just before the loop starts, but as described above, that can adversely affect the performance because the padding instructions can get executed. A smarter way is to detect some blind spots in the code before the loop and place it at such places so that they do not get executed or are executed rarely. E.g. If we have unconditional jump somewhere in the method code, we could add padding instruction after the unconditional jump. By doing this, we will make sure that the padding instruction is never executed but we still get the loop aligned at right boundary. Another place where such padding can be added is in code block or a block that executes rarely (based on PGO data). Of course, the blind spot that we select should be lexically before the loop that we are trying to align.
+If it is decided that padding is needed and we calculate the padding amount, the important design choice to make is where to place the padding instructions. A naïve way, like we did currently, is to place it just before the loop starts, but as described above, that can adversely affect the performance because the padding instructions can get executed. A smarter way is to detect some blind spots in the code before the loop and place it at such places so that they do not get executed or are executed rarely. E.g. If we have unconditional jump somewhere in the method code, we could add padding instruction after the unconditional jump. By doing this, we will make sure that the padding instruction is never executed but we still get the loop aligned at right boundary. Another place where such padding can be added is in code block or a block that executes rarely (based on Profile-Guided Optimization data). The blind spot that we select should be lexically before the loop that we are trying to align.
+
+```armasm
+00007ff9a59feb6b        jmp      SHORT G_M17025_IG30
+
+G_M17025_IG29:
+00007ff9a59feb6d        mov      rax, rcx
+
+G_M17025_IG30:
+00007ff9a59feb70        mov      ecx, eax
+00007ff9a59feb72        shr      ecx, 3
+00007ff9a59feb75        xor      r8d, r8d
+00007ff9a59feb78        test     ecx, ecx
+00007ff9a59feb7a        jbe      SHORT G_M17025_IG32
+00007ff9a59feb7c        align    [4 bytes]
+; ............................... 32B boundary ...............................
+G_M17025_IG31:
+00007ff9a59feb80        vmovupd  xmm0, xmmword ptr [rdi]
+00007ff9a59feb84        vptest   xmm0, xmm6
+00007ff9a59feb89        jne      SHORT G_M17025_IG33
+00007ff9a59feb8b        vpackuswb xmm0, xmm0, xmm0
+00007ff9a59feb8f        vmovq    xmmword ptr [rsi], xmm0
+00007ff9a59feb93        add      rdi, 16
+00007ff9a59feb97        add      rsi, 8
+00007ff9a59feb9b        inc      r8d
+00007ff9a59feb9e        cmp      r8d, ecx
+; ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ (cmp: 1) 32B boundary ...............................
+00007ff9a59feba1        jb       SHORT G_M17025_IG31
+
+```
+
+In above example, we aligned loop `IG31` with `4 bytes` padding, but we have inserted the padding right before the first instruction of the loop. Instead, we can add that padding after the `jmp` instruction present at `00007ff9a59feb6b`. That way, the padding will never be executed, but `IG31` will still get aligned at desired boundary.
 
 #### Memory cost
 
-Lastly, there is a need to evaluate how much extra memory is allocated by performing code alignment. If compiler can evaluate above heuristics before allocating memory for the generated code, then the extra memory allocated will be equal to the padding bytes we add. If the compilers align all the loops instead of aligning just hot loops, the memory cost can go up. On the other hand, if there is no limit to the padding amount and if compiler decide to pad at 32B boundary, then that too will consume lot of memory because the padding could be between 0 ~ 31 bytes. Hence, a right balance of loop size and padding limit is very important to have. One more problem that can arise is if a compiler cannot evaluate accurately above heuristics until we emit the instruction. In that case, a compiler will have to pessimistically insert an align instruction considering the largest possible padding. When it finds out during emitting that the alignment was not needed at all or the padding amount is just couple of bytes, it would have wasted the extra bytes it allocated for that alignment instruction. 
-
-## Impact
-
-Code size / Allocation size
-
-## Edge cases
-
-Loop unroll, loop clone, compacting blocks, bogus loop, etc.
+Lastly, there is a need to evaluate how much extra memory is allocated by the runtime for adding the extra padding before the loop. If the compiler aligns every hot loop, it can increase the code size of a method. There has to be a right balance between the loop size, frequency of its execution, padding needed, padding placement to ensure only the loops that truly benefit with the alignment are padded. Another aspect is that the if the JIT, before allocating memory for the generated code, can evaluate how much padding is needed to align a loop, it will request precise amount of memory to accommodate the extra padding instruction. However, like in RyuJIT, we first generate the code and estimate the amount of memory needed to store the instructions. Next, it allocates the memory from runtime and lastly, it will emit and store the instructions in the allocated memory buffer. During code generation (when we do the loop alignment calculation), we do not know the offset where the loop will be placed. In such case, we will have to pessimistically assume the maximum possible padding needed. If there are many loops in a method that would benefit from alignment, assuming maximum possible padding for all the loops would increase the allocation size of that method although the code size would be much smaller (depending on actual padding added). As a work around, during code generation, we assume [the method starts](https://github.com/dotnet/runtime/pull/42909) at offset `0(mod 32)`. Then we calculate the padding needed to align the loop. Now, during actual instruction emitting, if we see that for a certain instruction before the loop, the actual instruction size is less than the estimated instruction size, we have to add compensation `NOP` code to make sure that the loop still starts at the same offset that we used during padding calculation. This step reduces the difference between the method allocation size and actual code size.
 
 ## Benchmarks 
 
+While I have done lot of analysis [here](https://github.com/dotnet/runtime/issues/43227) and [here](https://github.com/dotnet/runtime/issues/44051) to understand the loop alignment impact on our various benchmarks, I would like to highlight two graphs that demonstrates both, the increased stability as well as improved performance due to the loop alignment.
+
+In below performance graph of [Bubble sort](https://github.com/dotnet/performance/blob/master/src/benchmarks/micro/runtime/Benchstones/BenchI/BubbleSort2.cs), data point 1 represents the point where we started aligning methods at `32B` boundary. Data point 2 represents the point where we started aligning inner loops that I described above. As you can see, the instability has reduced by heavy margin and we also gained performance.
+
+<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/stable-bubble.PNG" />
+
+Below is another graph of [LoopReturn benchmark](https://github.com/dotnet/performance/blob/4e14ecc54759224121b807c70e46fb1d9ee0e7d6/src/benchmarks/micro/runtime/Layout/SearchLoops.cs#L30) ran on Ubuntu x64 box where we see similar trend.
+
+<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/ubuntu_loopreturn.PNG" />
+
+
+## Edge cases
+
+While implementing the loop alignment feature, there are certain edge cases that are worth mentioning. We identify a loop needs alignment by setting a flag on the first basic block that is part of the loop. During later phases, if the loop gets unrolled, we need to make sure that we remove the alignment flag from that loop because it no longer represents the loop. Likewise, for other scenarios like loop cloning, or eliminating bogus loops, we need to make sure we update the alignment flag appropriately.
+
+
 ## Future work
 
-- relative weight of outer loop vs. inner loop
+One of the future work to improve the loop alignment is to add the "Padding placement" in blind spots as I described above.  Additionally, we need to not just restrict aligning the inner loops but outer loops whose relative weight is higher than the inner loop. In below example, `i-loop` executes 1000 times, while the `j-loop` executes just 2 times in every iteration. With such, if we pad the `j-loop` we will end up making the padded instruction execute 1000 times which can be expensive. Better approach would be to instead pad and align the `i-loop`. 
 
 ```c#
 for (int i = 0; i < 1000; i++) {
@@ -197,10 +261,12 @@ for (int i = 0; i < 1000; i++) {
 }
 ```
 
+Lastly, the loop alignment is only enabled for `x86` and `x64` architecture, but we would like to take it forward and support `Arm32` and `Arm64` architectures as well.
+
 
 ## Loop alignment in other compilers
 
-For native or ahead of time compilers, it is hard to predict which loop will need alignment because the target address where loop will be placed can only be known during runtime and not during ahead of time compilation. However, certain native runtimes at least give an option to the user to let them specify the alignment.
+For native or ahead of time compilers, it is hard to predict which loop will need alignment because the target address where the loop will be placed can only be known during runtime and not during ahead of time compilation. However, certain native runtimes at least give an option to the user to let them specify the alignment.
 
 ### GCC
 
@@ -216,13 +282,3 @@ Chakra marks the inner most loop as the candidate for loop alignment. This happe
 ## References
 
 1. BubbleSort2 benchmark is part of .NET's BDN framework and the source code is [here](https://github.com/dotnet/performance/blob/master/src/benchmarks/micro/runtime/Benchstones/BenchI/BubbleSort2.cs). Results taken in .NET perf lab can be seen [here](https://pvscmdupload.blob.core.windows.net/reports/allTestHistory%2frefs%2fheads%2fmaster_x64_Windows%2010.0.18362%2fBenchstone.BenchI.BubbleSort2.Test.html).
-
-Talk about the problem and link to the video of alignment issue
-- inner loop detection
-- adding pads depending on loop size
-- figuring out how to add pad of > 15 bytes
-- concept of minBlocks to see if alignment is needed or not.
-- adjust the maxPads depending on the loop size
-
-
-- other compilers
