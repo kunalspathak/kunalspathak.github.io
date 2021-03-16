@@ -250,11 +250,11 @@ Lastly, there is a need to evaluate how much extra memory is allocated by the ru
 
 Below graph demonstrates the code size and allocation size's impact due to the loop alignment. Allocation size represents the amount of memory allocated to store the machine code of all the .NET libraries methods while code size represents the actual amount of memory needed to store method's machine code. The code size is lowest for `32BAdaptive` technique. This is because we have cut off the padding amount depending on the loop size, as discussed before. So from memory perspective, `32BAdaptive` wins.
 
-<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/size-compare1.PNG" />
+<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/size-compare1.png" />
 
 Allocation size in above graph is higher than the code size for all the implementation because we accounted for maximum possible padding for every loop during allocation size calculation. Ideally, we wanted to have allocation size same as code size. Below is another view that demonstrates the difference between the allocation size and code size. The difference is highest for 32B non-adaptive implementation and lowest with 16B non-adaptive. 32B adaptive is marginally higher than 16B non-adaptive, but again since the overall code size is minimal as compared to 16B/32B non-adaptive, `32BAdaptive` is the winner.
 
-<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/size-compare2.PNG" />
+<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/size-compare2.png" />
 
 
 However, to make sure that we know precise amount of padding we are going to add before allocating the memory, we devised a work around. During code generation, we know that [the method starts](https://github.com/dotnet/runtime/pull/42909) at offset `0(mod 32)`. We calculate the padding needed to align the loop and [update the `align` instruction with that amount](https://github.com/dotnet/runtime/blob/2ee54f78dd4c35dd370287c12672d6b6750f98a4/src/coreclr/jit/emit.cpp#L4797). Thus, we would allocate the memory considering the real padding and would not allocate memory for loops for which we do not need padding. This works if the estimated size of all the instructions during code generation of a method matches the actual size during emitting those instructions. Sometimes, during emitting, we realize that it is optimal to have shorter encoding for an instruction and that deviates the estimated vs. actual size of that instruction. We cannot afford to have this misprediction happen for instruction that falls before the loop that we are about to align, because that would change the placement of the loop.
@@ -298,11 +298,11 @@ In below performance graph of [Bubble sort](https://github.com/dotnet/performanc
 
 Below is another graph of "LoopReturn" benchmark<sup>2</sup> ran on Ubuntu x64 box where we see similar trend.
 
-<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/ubuntu_loopreturn.PNG" />
+<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/ubuntu_loopreturn.png" />
 
 Below is the graph that shows the comparison of various algorithms that we tried to understand the loop alignment impact across benchmarks. The measurements in the graph are for [microbenchmarks](https://github.com/dotnet/performance/tree/master/src/benchmarks/micro) and in it, we compared the performance characteristics using various alignment techniques. `32B` and `16B` represents non-adaptive technique while `32BAdaptive` represents `32B` adaptive technique.
 
-<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/bench-compare.PNG" />
+<img align="center" width="80%" height="80%" src="/assets/img/loop-alignment/bench-compare.png" />
 
 32B adaptive improves sooner after 171 benchmarks as compared to the next better approach which is 32B non-adaptive that gains performance after 241 benchmarks. We get maximum performance benefit sooner with 32B adaptive approach.
 
