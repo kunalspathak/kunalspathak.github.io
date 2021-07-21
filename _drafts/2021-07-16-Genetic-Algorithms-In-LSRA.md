@@ -249,7 +249,7 @@ With `superpmi`, we have an ability to run JIT against all the methods present i
 
 ### Setup
 
-Can be skipped
+There were several changes that we had to make in our tooling: 
 
 - clrjit.dll vs. copy_of_clrjit.dll
 - superpmi.exe tweaking
@@ -310,24 +310,4 @@ While these ordering definitely gives good `PerfScore`, there were several regre
 
 ## Conclusion
 
-Register allocation is complex, slight change in algorithm could have huge impact on the generated code. We explored lot of ideas to come up 
-
-Auto tuning
-
-Heuristics  We explored lot of ideas to come up with optimal heuristics 
-
-
-DONE- Background
-DONE- Motivation
-DONE    - Why heuristic tuning 
-- Refactoring done to perform experimentation https://github.com/dotnet/runtime/pull/52832
-    - Design pattern decision
-- Genetic Algorithm
-    - Algorithm picked
-    - How experiments were done and when we converge
-    - Some scripts to show how experiments were conducted
-- What we found
-- Conclusion
-
-## Genetic Algorithm 
-Setup
+Register allocation is a complex topic, slight change in algorithm could have huge impact on the generated code. We explored various ideas for finding optimal heuristic selection ordering. Using Genetic algorithm, we could find optimal ordering and there was also some commonality in the heuristics order that was performance efficient for majority of configuration that we tested. However, with many improvements, there were also regressions in many methods across all configurations. We discovered that there were other area of improvements that need to be fixed first before making register allocation. [[RyuJIT][LSRA]](https://github.com/dotnet/runtime/issues?q=is%3Aissue+is%3Aopen+%22%5BRyuJIT%5D%5BLSRA%5D%22+) captures some of the issues that when handled will give us the path to apply various heuristic ordering without regressing the performance. Going forward, we could also auto tune the heuristic ordering based on various factors like how many method parameters are present, if loops are present or not, exception handling, etc. Opportunities are endless, time is limited!
