@@ -2,8 +2,10 @@
 layout: post
 title: Genetic algorithm for Register Allocation
 subtitle: Experiment that gave great insights
-tags: [register allocation, LSRA]
+tags: [register allocation, LSRA, RyuJIT]
 ---
+
+This post is also part of .NET's design docs: [lsra-heuristic-tuning](https://github.com/dotnet/runtime/blob/0a4dde9f1c30c1a4bfa54a68872a6425982e146e/docs/design/coreclr/jit/lsra-heuristic-tuning.md).
 
 ## Background 
 
